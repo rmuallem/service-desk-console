@@ -1,0 +1,597 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Service Desk Console</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: sticky-free single column console. Header, KPI tiles, two breakdown cards, filter toolbar, ticket table, detail modal. */
+:root {
+  --bg: #f3f5f8;
+  --surface: #ffffff;
+  --surface-2: #f6f8fb;
+  --border: #dbe1e8;
+  --fg: #151d27;
+  --muted: #5a6675;
+  --accent: #1d5bbf;
+  --accent-fg: #ffffff;
+  --accent-soft: #e4edfb;
+  --crit: #b42318; --crit-bg: #fde8e6;
+  --high: #a8480a; --high-bg: #fdebd6;
+  --med: #7d6200; --med-bg: #fbf1c9;
+  --low: #475467; --low-bg: #e8ecf1;
+  --st-open: #1d5bbf; --st-open-bg: #e4edfb;
+  --st-prog: #6638b0; --st-prog-bg: #ece4f9;
+  --st-done: #17714a; --st-done-bg: #dcf2e6;
+  --shadow: 0 1px 2px rgba(16,24,40,.06), 0 8px 24px rgba(16,24,40,.10);
+  --scrim: rgba(15,22,32,.45);
+  --font-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0e1318; --surface: #161d25; --surface-2: #1b242d; --border: #2a3541;
+    --fg: #e5eaf0; --muted: #9aa8b7; --accent: #6fa4f2; --accent-fg: #0a1522; --accent-soft: #172a45;
+    --crit: #ff8f85; --crit-bg: #3b1b19; --high: #ffb36b; --high-bg: #3a2915;
+    --med: #e8cb62; --med-bg: #342e13; --low: #adb9c7; --low-bg: #242e39;
+    --st-open: #82b2f6; --st-open-bg: #172a45; --st-prog: #bba0f2; --st-prog-bg: #2b2244;
+    --st-done: #62d19a; --st-done-bg: #14321f;
+    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.5); --scrim: rgba(0,0,0,.6);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0e1318; --surface: #161d25; --surface-2: #1b242d; --border: #2a3541;
+  --fg: #e5eaf0; --muted: #9aa8b7; --accent: #6fa4f2; --accent-fg: #0a1522; --accent-soft: #172a45;
+  --crit: #ff8f85; --crit-bg: #3b1b19; --high: #ffb36b; --high-bg: #3a2915;
+  --med: #e8cb62; --med-bg: #342e13; --low: #adb9c7; --low-bg: #242e39;
+  --st-open: #82b2f6; --st-open-bg: #172a45; --st-prog: #bba0f2; --st-prog-bg: #2b2244;
+  --st-done: #62d19a; --st-done-bg: #14321f;
+  --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.5); --scrim: rgba(0,0,0,.6);
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--fg);
+  font-family: var(--font-body); font-size: 14px; line-height: 1.5;
+  padding-block: 20px 40px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.wrap { max-width: 1180px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
+h1, h2, h3, p { margin: 0; }
+button, input, select, textarea { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.top { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; }
+.top h1 { font-size: 22px; font-weight: 600; letter-spacing: -0.01em; }
+.top p { color: var(--muted); font-size: 13px; }
+.actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.btn {
+  border: 1px solid var(--border); background: var(--surface); border-radius: 6px;
+  padding: 8px 14px; cursor: pointer; font-weight: 500; min-height: 36px;
+}
+.btn:hover { background: var(--surface-2); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); }
+.btn.primary:hover { filter: brightness(1.08); background: var(--accent); }
+.btn.danger { color: var(--crit); border-color: var(--crit); }
+.btn.small { padding: 4px 10px; min-height: 30px; font-size: 13px; }
+.note-bar { background: var(--med-bg); color: var(--med); border-radius: 6px; padding: 8px 12px; font-size: 13px; }
+
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; }
+.tile {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+  padding: 14px 16px; text-align: left; cursor: pointer; display: flex; flex-direction: column; gap: 2px;
+}
+.tile:hover { border-color: var(--accent); }
+.tile .k { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+.tile .v { font-size: 30px; font-weight: 600; font-variant-numeric: tabular-nums; line-height: 1.15; }
+.tile .s { font-size: 12px; color: var(--muted); }
+.tile.t-crit .v { color: var(--crit); }
+.tile.t-late .v { color: var(--high); }
+.tile.t-done .v { color: var(--st-done); }
+
+.two { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 16px; min-width: 0; }
+.card h2 { font-size: 13px; font-weight: 600; margin-bottom: 12px; }
+.bars { display: flex; flex-direction: column; gap: 8px; }
+.bar-row { display: grid; grid-template-columns: 78px 1fr 28px; gap: 10px; align-items: center; font-size: 13px; }
+.bar-track { height: 10px; background: var(--surface-2); border-radius: 3px; overflow: hidden; }
+.bar-fill { height: 100%; border-radius: 3px; background: var(--accent); min-width: 0; }
+.bar-row .n { text-align: right; font-variant-numeric: tabular-nums; color: var(--muted); }
+.fill-Critical { background: var(--crit); } .fill-High { background: var(--high); }
+.fill-Medium { background: var(--med); } .fill-Low { background: var(--low); }
+
+.toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.toolbar input[type=search] { flex: 1 1 220px; min-width: 0; }
+.field, .toolbar input, .toolbar select {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 7px 10px; min-height: 36px;
+}
+.toolbar select { flex: 0 1 auto; }
+.count { color: var(--muted); font-size: 13px; margin-left: auto; font-variant-numeric: tabular-nums; }
+
+.table-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; min-width: 820px; }
+th { text-align: left; font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; padding: 10px 12px; border-bottom: 1px solid var(--border); background: var(--surface-2); white-space: nowrap; }
+td { padding: 11px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+tbody tr { cursor: pointer; }
+tbody tr:hover { background: var(--surface-2); }
+tbody tr:last-child td { border-bottom: 0; }
+.id { font-family: var(--font-mono); font-size: 12.5px; color: var(--muted); white-space: nowrap; }
+.t-title { font-weight: 500; }
+.t-sub { font-size: 12.5px; color: var(--muted); }
+.mono { font-family: var(--font-mono); font-size: 12.5px; }
+.late { color: var(--crit); font-weight: 500; }
+.nowrap { white-space: nowrap; }
+.empty { padding: 36px 16px; text-align: center; color: var(--muted); }
+
+.pill { display: inline-flex; align-items: center; gap: 6px; padding: 2px 9px; border-radius: 999px; font-size: 12px; font-weight: 500; white-space: nowrap; }
+.pill::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.p-Critical { color: var(--crit); background: var(--crit-bg); }
+.p-High { color: var(--high); background: var(--high-bg); }
+.p-Medium { color: var(--med); background: var(--med-bg); }
+.p-Low { color: var(--low); background: var(--low-bg); }
+.s-Open { color: var(--st-open); background: var(--st-open-bg); }
+.s-In-Progress { color: var(--st-prog); background: var(--st-prog-bg); }
+.s-Resolved { color: var(--st-done); background: var(--st-done-bg); }
+
+.overlay { position: fixed; inset: 0; background: var(--scrim); display: flex; align-items: flex-start; justify-content: center; overflow-y: auto; z-index: 20;
+  padding: max(16px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) max(16px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); }
+.overlay[hidden] { display: none; }
+.modal { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; box-shadow: var(--shadow); width: 100%; max-width: 680px; margin: 24px 0; padding: 20px; display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.m-head { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; }
+.m-head h2 { font-size: 18px; font-weight: 600; line-height: 1.3; text-wrap: balance; }
+.badges { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; align-items: center; }
+.x { border: 0; background: transparent; font-size: 22px; line-height: 1; cursor: pointer; color: var(--muted); padding: 4px 8px; border-radius: 6px; }
+.x:hover { background: var(--surface-2); }
+.meta { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+.meta div { min-width: 0; }
+.meta dt { font-size: 12px; color: var(--muted); }
+.meta dd { margin: 0; overflow-wrap: anywhere; }
+dl.meta { margin: 0; }
+.desc { white-space: pre-wrap; overflow-wrap: anywhere; background: var(--surface-2); border-radius: 6px; padding: 10px 12px; }
+.controls { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; }
+label.f { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); font-weight: 500; }
+label.f select, label.f input, label.f textarea { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; color: var(--fg); font-size: 14px; font-weight: 400; min-width: 0; width: 100%; }
+label.f textarea { resize: vertical; min-height: 84px; }
+.err { color: var(--crit); font-size: 12px; min-height: 16px; }
+.log { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.log li { border-left: 2px solid var(--border); padding-left: 10px; min-width: 0; overflow-wrap: anywhere; }
+.log .when { font-size: 12px; color: var(--muted); }
+.log .sys { color: var(--muted); }
+.h3 { font-size: 13px; font-weight: 600; margin-bottom: 8px; }
+.row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.row.end { justify-content: flex-end; }
+.spacer { flex: 1; }
+.confirm { color: var(--crit); font-size: 13px; }
+
+@media (prefers-reduced-motion: no-preference) {
+  .bar-fill { transition: width .25s ease; }
+}
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>Service Desk Console</h1>
+      <p>IT incidents and requests. Sample tickets are loaded so you can try everything.</p>
+    </div>
+    <div class="actions">
+      <button class="btn" id="resetBtn" type="button">Reset sample data</button>
+      <button class="btn primary" id="newBtn" type="button">New ticket</button>
+    </div>
+  </header>
+
+  <div class="note-bar" id="storeNote" hidden>Browser storage is unavailable here, so changes last only until you close this page.</div>
+
+  <section class="tiles" id="tiles" aria-label="Ticket statistics"></section>
+
+  <section class="two">
+    <div class="card"><h2>Active tickets by priority</h2><div class="bars" id="barsPriority"></div></div>
+    <div class="card"><h2>Active tickets by category</h2><div class="bars" id="barsCategory"></div></div>
+  </section>
+
+  <section class="toolbar" aria-label="Search and filter tickets">
+    <input type="search" id="q" placeholder="Search ID, title, requester, assignee" aria-label="Search tickets">
+    <select id="fStatus" aria-label="Filter by status">
+      <option value="all">All statuses</option>
+      <option value="active">Active (open + in progress)</option>
+      <option value="Open">Open</option>
+      <option value="In Progress">In Progress</option>
+      <option value="Resolved">Resolved</option>
+    </select>
+    <select id="fPriority" aria-label="Filter by priority"></select>
+    <select id="fCategory" aria-label="Filter by category"></select>
+    <select id="fSort" aria-label="Sort tickets">
+      <option value="priority">Sort: priority</option>
+      <option value="newest">Sort: newest</option>
+      <option value="oldest">Sort: oldest</option>
+      <option value="updated">Sort: recently updated</option>
+    </select>
+    <button class="btn small" id="clearBtn" type="button">Clear filters</button>
+    <span class="count" id="count" aria-live="polite"></span>
+  </section>
+
+  <section class="table-wrap">
+    <table>
+      <thead><tr>
+        <th>ID</th><th>Ticket</th><th>Priority</th><th>Status</th><th>Assignee</th><th>SLA</th><th>Updated</th>
+      </tr></thead>
+      <tbody id="rows"></tbody>
+    </table>
+    <div class="empty" id="empty" hidden>No tickets match these filters.</div>
+  </section>
+</div>
+
+<div class="overlay" id="overlay" hidden>
+  <div class="modal" id="modal" role="dialog" aria-modal="true" aria-labelledby="mTitle"></div>
+</div>
+
+<script>
+(function () {
+  var KEY = 'servicedesk.tickets.v1';
+  var PRIORITIES = ['Critical', 'High', 'Medium', 'Low'];
+  var STATUSES = ['Open', 'In Progress', 'Resolved'];
+  var CATEGORIES = ['Network', 'Email', 'Identity', 'Servers', 'Hardware', 'Software', 'Access'];
+  var TECHS = ['Unassigned', 'M. Becker', 'A. Yilmaz', 'S. Hoffmann', 'L. Novak'];
+  var SLA_HOURS = { Critical: 4, High: 8, Medium: 24, Low: 72 };
+  var RANK = { Critical: 0, High: 1, Medium: 2, Low: 3 };
+  var HOUR = 3600000;
+
+  var state = { tickets: [], q: '', status: 'all', priority: 'all', category: 'all', sort: 'priority', overdueOnly: false, openId: null, mode: null };
+  var storageOk = true;
+
+  function $(id) { return document.getElementById(id); }
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+  function slug(s) { return s.replace(/\s+/g, '-'); }
+
+  /* ---------- sample data ---------- */
+  function ago(h) { return Date.now() - h * HOUR; }
+  function seed() {
+    var T = function (id, title, cat, pri, st, who, tech, hrs, desc, notes) {
+      return { id: 'INC-' + id, title: title, category: cat, priority: pri, status: st, requester: who, assignee: tech,
+        created: ago(hrs), updated: ago(Math.max(0.2, hrs / 3)), description: desc, notes: notes || [] };
+    };
+    return [
+      T(1014, 'VPN gateway down, branch offices unreachable', 'Network', 'Critical', 'In Progress', 'Operations NRW', 'M. Becker', 2.2,
+        'Site-to-site IPsec tunnels to Duesseldorf, Cologne and Essen dropped at 07:48. Primary firewall shows HA failover loop. Users cannot reach ERP or file shares.',
+        [{ at: ago(1.6), kind: 'note', text: 'Secondary firewall promoted manually. Tunnels re-establishing one by one.' }]),
+      T(1015, 'Exchange Online mail flow delayed by more than 30 minutes', 'Email', 'Critical', 'Open', 'Sales EMEA', 'Unassigned', 1.1,
+        'Outbound mail queues in the connector. Customers report late replies. Microsoft 365 service health shows a possible advisory.'),
+      T(1012, 'Repeated account lockouts in Finance team', 'Identity', 'High', 'In Progress', 'Finance, 4th floor', 'A. Yilmaz', 5,
+        'Six users locked out several times per hour since the password policy change. Event ID 4740 points to a stale mapped drive on a terminal server.',
+        [{ at: ago(3), kind: 'note', text: 'Found cached credentials in a scheduled task on TS-FIN-01. Clearing now.' }]),
+      T(1009, 'Core switch SW-DUS-02 high CPU and packet loss', 'Network', 'High', 'Open', 'Network Operations', 'Unassigned', 10,
+        'SNMP alert: CPU above 92% for 40 minutes. Spanning tree topology changes seen on VLAN 120. Possible loop from an unmanaged switch.'),
+      T(1008, 'Nightly backup failed on FILE-SRV01 (VSS error)', 'Servers', 'High', 'In Progress', 'Infrastructure', 'S. Hoffmann', 20,
+        'Veeam job reports VSS writer failure 0x8004230F. Last good restore point is 2 days old. Disk at 94% on D:.',
+        [{ at: ago(14), kind: 'note', text: 'Freed 120 GB by removing old shadow copies. Retry scheduled tonight.' }]),
+      T(1013, 'Outlook asks for password again after MFA enrollment', 'Identity', 'Medium', 'Open', 'K. Weber, Marketing', 'Unassigned', 6,
+        'After registering the Authenticator app, Outlook for Windows prompts every few minutes. Webmail works.'),
+      T(1005, 'Shared printer on 4th floor offline', 'Hardware', 'Medium', 'Open', 'Facility Office', 'L. Novak', 30,
+        'HP LaserJet shows error 79 and does not respond to ping. Print queue on PRINT-02 is stuck with 18 jobs.'),
+      T(1010, 'SharePoint permissions for HR onboarding site', 'Access', 'Medium', 'In Progress', 'HR Team', 'A. Yilmaz', 14,
+        'New hires need read access to the Onboarding site and edit access to their own checklist. Approval from the HR lead is attached.'),
+      T(1016, 'Laptop battery swollen, Dell Latitude 7440', 'Hardware', 'Medium', 'Open', 'T. Schmidt, Legal', 'Unassigned', 3,
+        'Trackpad lifts off the chassis. User has powered the laptop off. Needs a replacement device and safe battery disposal.'),
+      T(1007, 'Install Visual Studio Code on developer workstation', 'Software', 'Low', 'Open', 'R. Fischer, Dev', 'Unassigned', 26,
+        'Standard software request. Manager approval is in the ticket. Extensions list attached.'),
+      T(1006, 'Docking station does not detect second monitor', 'Hardware', 'Low', 'Resolved', 'N. Krause, Controlling', 'L. Novak', 48,
+        'Second DisplayPort output stayed black after the Windows update.',
+        [{ at: ago(30), kind: 'note', text: 'Updated dock firmware and display driver. Both monitors work.' }]),
+      T(1003, 'Guest Wi-Fi not issuing DHCP leases', 'Network', 'High', 'Resolved', 'Reception', 'M. Becker', 30,
+        'Visitors cannot get an IP address on the guest SSID. Scope 10.40.8.0/24 was exhausted.',
+        [{ at: ago(26), kind: 'note', text: 'Lease time reduced from 8 days to 4 hours and the scope extended to /23.' }]),
+      T(1002, 'Echo in Teams meetings, room 3.12', 'Software', 'Medium', 'Resolved', 'Project Office', 'S. Hoffmann', 52,
+        'Remote participants hear their own voice. Room system runs Teams Rooms on a mini PC.',
+        [{ at: ago(40), kind: 'note', text: 'Disabled the second speakerphone that was joined as an extra audio device.' }]),
+      T(1001, 'Microsoft Entra Connect sync stopped', 'Identity', 'Critical', 'Resolved', 'IT Security', 'A. Yilmaz', 70,
+        'Password hash sync stopped for two hours after the service account password expired.',
+        [{ at: ago(68), kind: 'note', text: 'Rotated the service account credentials and forced a delta sync.' }]),
+      T(1004, 'Password reset for external contractor account', 'Access', 'Low', 'Resolved', 'Procurement', 'L. Novak', 5.5,
+        'Contractor identity verified by phone with the project lead. Temporary password issued.')
+    ];
+  }
+
+  /* ---------- storage ---------- */
+  function save() {
+    try { localStorage.setItem(KEY, JSON.stringify(state.tickets)); storageOk = true; }
+    catch (e) { storageOk = false; }
+    $('storeNote').hidden = storageOk;
+  }
+  function load() {
+    var raw = null;
+    try { raw = localStorage.getItem(KEY); } catch (e) { storageOk = false; }
+    var parsed = null;
+    if (raw) { try { parsed = JSON.parse(raw); } catch (e) { parsed = null; } }
+    if (Array.isArray(parsed) && parsed.length >= 0 && raw) { state.tickets = parsed; }
+    else { state.tickets = seed(); save(); }
+    $('storeNote').hidden = storageOk;
+  }
+
+  /* ---------- helpers ---------- */
+  function nextId() {
+    var max = 1000;
+    state.tickets.forEach(function (t) { var n = parseInt(String(t.id).replace('INC-', ''), 10); if (n > max) max = n; });
+    return 'INC-' + (max + 1);
+  }
+  function rel(ts) {
+    var m = Math.round((Date.now() - ts) / 60000);
+    if (m < 1) return 'just now';
+    if (m < 60) return m + ' min ago';
+    var h = Math.round(m / 60);
+    if (h < 48) return h + ' h ago';
+    return Math.round(h / 24) + ' d ago';
+  }
+  function dur(ms) {
+    var m = Math.max(1, Math.round(Math.abs(ms) / 60000));
+    if (m < 60) return m + ' min';
+    var h = Math.floor(m / 60), r = m % 60;
+    if (h < 24) return h + ' h' + (r ? ' ' + r + ' min' : '');
+    return Math.floor(h / 24) + ' d ' + (h % 24) + ' h';
+  }
+  function dueAt(t) { return t.created + SLA_HOURS[t.priority] * HOUR; }
+  function isLate(t) { return t.status !== 'Resolved' && Date.now() > dueAt(t); }
+  function slaText(t) {
+    if (t.status === 'Resolved') return '<span class="t-sub">Closed</span>';
+    var left = dueAt(t) - Date.now();
+    if (left < 0) return '<span class="late">Overdue ' + dur(left) + '</span>';
+    return '<span>Due in ' + dur(left) + '</span>';
+  }
+  function fmtDate(ts) {
+    return new Date(ts).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+  }
+  function priPill(p) { return '<span class="pill p-' + p + '">' + p + '</span>'; }
+  function stPill(s) { return '<span class="pill s-' + slug(s) + '">' + s + '</span>'; }
+  function isActive(t) { return t.status !== 'Resolved'; }
+  function find(id) { for (var i = 0; i < state.tickets.length; i++) if (state.tickets[i].id === id) return state.tickets[i]; return null; }
+  function addLog(t, kind, text) { t.notes.push({ at: Date.now(), kind: kind, text: text }); t.updated = Date.now(); }
+
+  /* ---------- dashboard ---------- */
+  function renderStats() {
+    var T = state.tickets;
+    var open = T.filter(function (t) { return t.status === 'Open'; }).length;
+    var prog = T.filter(function (t) { return t.status === 'In Progress'; }).length;
+    var crit = T.filter(function (t) { return isActive(t) && t.priority === 'Critical'; }).length;
+    var late = T.filter(isLate).length;
+    var done = T.filter(function (t) { return t.status === 'Resolved'; }).length;
+    var pct = T.length ? Math.round(done / T.length * 100) : 0;
+    $('tiles').innerHTML =
+      tile('Open', open, 'Waiting for a technician', 'open', '') +
+      tile('In progress', prog, 'Being worked on', 'prog', '') +
+      tile('Critical active', crit, 'Needs action now', 'crit', 't-crit') +
+      tile('SLA overdue', late, 'Past response target', 'late', 't-late') +
+      tile('Resolved', done, pct + '% of all tickets', 'done', 't-done');
+
+    var byP = PRIORITIES.map(function (p) { return [p, T.filter(function (t) { return isActive(t) && t.priority === p; }).length]; });
+    var mp = Math.max.apply(null, byP.map(function (x) { return x[1]; }).concat([1]));
+    $('barsPriority').innerHTML = byP.map(function (x) {
+      return '<div class="bar-row"><span>' + x[0] + '</span><div class="bar-track"><div class="bar-fill fill-' + x[0] + '" style="width:' + (x[1] / mp * 100) + '%"></div></div><span class="n">' + x[1] + '</span></div>';
+    }).join('');
+
+    var byC = CATEGORIES.map(function (c) { return [c, T.filter(function (t) { return isActive(t) && t.category === c; }).length]; })
+      .sort(function (a, b) { return b[1] - a[1]; });
+    var mc = Math.max.apply(null, byC.map(function (x) { return x[1]; }).concat([1]));
+    $('barsCategory').innerHTML = byC.map(function (x) {
+      return '<div class="bar-row"><span>' + x[0] + '</span><div class="bar-track"><div class="bar-fill" style="width:' + (x[1] / mc * 100) + '%"></div></div><span class="n">' + x[1] + '</span></div>';
+    }).join('');
+  }
+  function tile(k, v, s, key, cls) {
+    return '<button type="button" class="tile ' + cls + '" data-tile="' + key + '"><span class="k">' + k + '</span><span class="v">' + v + '</span><span class="s">' + s + '</span></button>';
+  }
+
+  /* ---------- list ---------- */
+  function filtered() {
+    var q = state.q.trim().toLowerCase();
+    var list = state.tickets.filter(function (t) {
+      if (state.status === 'active' && !isActive(t)) return false;
+      if (state.status !== 'all' && state.status !== 'active' && t.status !== state.status) return false;
+      if (state.priority !== 'all' && t.priority !== state.priority) return false;
+      if (state.category !== 'all' && t.category !== state.category) return false;
+      if (state.overdueOnly && !isLate(t)) return false;
+      if (q) {
+        var hay = (t.id + ' ' + t.title + ' ' + t.requester + ' ' + t.assignee + ' ' + t.category).toLowerCase();
+        if (hay.indexOf(q) === -1) return false;
+      }
+      return true;
+    });
+    list.sort(function (a, b) {
+      if (state.sort === 'newest') return b.created - a.created;
+      if (state.sort === 'oldest') return a.created - b.created;
+      if (state.sort === 'updated') return b.updated - a.updated;
+      var ra = (a.status === 'Resolved' ? 10 : 0) + RANK[a.priority];
+      var rb = (b.status === 'Resolved' ? 10 : 0) + RANK[b.priority];
+      return ra - rb || a.created - b.created;
+    });
+    return list;
+  }
+  function renderList() {
+    var list = filtered();
+    $('rows').innerHTML = list.map(function (t) {
+      return '<tr tabindex="0" data-id="' + esc(t.id) + '">' +
+        '<td class="id">' + esc(t.id) + '</td>' +
+        '<td><div class="t-title">' + esc(t.title) + '</div><div class="t-sub">' + esc(t.requester) + ' · ' + esc(t.category) + '</div></td>' +
+        '<td>' + priPill(t.priority) + '</td>' +
+        '<td>' + stPill(t.status) + '</td>' +
+        '<td class="nowrap">' + esc(t.assignee) + '</td>' +
+        '<td class="nowrap">' + slaText(t) + '</td>' +
+        '<td class="nowrap t-sub">' + rel(t.updated) + '</td></tr>';
+    }).join('');
+    $('empty').hidden = list.length > 0;
+    $('count').textContent = state.overdueOnly ? list.length + ' overdue tickets' : list.length + ' of ' + state.tickets.length + ' tickets';
+  }
+  function renderAll() { renderStats(); renderList(); }
+
+  /* ---------- modal ---------- */
+  function opts(arr, sel) {
+    return arr.map(function (v) { return '<option' + (v === sel ? ' selected' : '') + '>' + esc(v) + '</option>'; }).join('');
+  }
+  function openModal(html) {
+    $('modal').innerHTML = html;
+    $('overlay').hidden = false;
+    document.body.style.overflow = 'hidden';
+  }
+  function closeModal() {
+    $('overlay').hidden = true;
+    document.body.style.overflow = '';
+    state.openId = null; state.mode = null;
+  }
+
+  function openNew() {
+    state.mode = 'new'; state.openId = null;
+    openModal(
+      '<div class="m-head"><h2 id="mTitle">New ticket</h2><button class="x" type="button" data-act="close" aria-label="Close">&times;</button></div>' +
+      '<form id="newForm" class="modal" style="border:0;box-shadow:none;padding:0;margin:0" novalidate>' +
+      '<label class="f">Title<input id="nTitle" maxlength="120" placeholder="Short summary of the problem" autocomplete="off"></label>' +
+      '<div class="controls">' +
+      '<label class="f">Requester<input id="nWho" maxlength="60" placeholder="Name or team" autocomplete="off"></label>' +
+      '<label class="f">Category<select id="nCat">' + opts(CATEGORIES, 'Network') + '</select></label>' +
+      '<label class="f">Priority<select id="nPri">' + opts(PRIORITIES, 'Medium') + '</select></label>' +
+      '<label class="f">Assignee<select id="nTech">' + opts(TECHS, 'Unassigned') + '</select></label></div>' +
+      '<label class="f">Description<textarea id="nDesc" maxlength="1500" placeholder="What happened, since when, who is affected, error messages"></textarea></label>' +
+      '<div class="err" id="nErr" role="alert"></div>' +
+      '<div class="row end"><button type="button" class="btn" data-act="close">Cancel</button><button type="submit" class="btn primary">Create ticket</button></div>' +
+      '</form>'
+    );
+    setTimeout(function () { var el = $('nTitle'); if (el) el.focus(); }, 0);
+  }
+
+  function openDetail(id, confirmDelete) {
+    var t = find(id); if (!t) return;
+    state.mode = 'detail'; state.openId = id;
+    var notes = t.notes.slice().sort(function (a, b) { return b.at - a.at; });
+    var log = notes.length ? notes.map(function (n) {
+      return '<li><div class="when">' + fmtDate(n.at) + (n.kind === 'system' ? ' · activity' : ' · note') + '</div><div class="' + (n.kind === 'system' ? 'sys' : '') + '">' + esc(n.text) + '</div></li>';
+    }).join('') : '<li><div class="sys">No activity yet.</div></li>';
+    var del = confirmDelete
+      ? '<span class="confirm">Delete ' + esc(t.id) + ' permanently?</span><button class="btn danger small" type="button" data-act="delete-yes">Delete</button><button class="btn small" type="button" data-act="delete-no">Keep</button>'
+      : '<button class="btn danger small" type="button" data-act="delete">Delete ticket</button>';
+    openModal(
+      '<div class="m-head"><div><div class="id">' + esc(t.id) + '</div><h2 id="mTitle">' + esc(t.title) + '</h2>' +
+      '<div class="badges">' + priPill(t.priority) + stPill(t.status) + (isLate(t) ? '<span class="late">SLA overdue ' + dur(dueAt(t) - Date.now()) + '</span>' : '') + '</div></div>' +
+      '<button class="x" type="button" data-act="close" aria-label="Close">&times;</button></div>' +
+      '<dl class="meta">' +
+      '<div><dt>Requester</dt><dd>' + esc(t.requester) + '</dd></div>' +
+      '<div><dt>Category</dt><dd>' + esc(t.category) + '</dd></div>' +
+      '<div><dt>Created</dt><dd>' + fmtDate(t.created) + '</dd></div>' +
+      '<div><dt>SLA target (' + SLA_HOURS[t.priority] + ' h)</dt><dd>' + (t.status === 'Resolved' ? 'Closed' : fmtDate(dueAt(t))) + '</dd></div></dl>' +
+      (t.description ? '<div class="desc">' + esc(t.description) + '</div>' : '') +
+      '<div class="controls">' +
+      '<label class="f">Status<select id="dStatus">' + opts(STATUSES, t.status) + '</select></label>' +
+      '<label class="f">Priority<select id="dPri">' + opts(PRIORITIES, t.priority) + '</select></label>' +
+      '<label class="f">Assignee<select id="dTech">' + opts(TECHS, t.assignee) + '</select></label></div>' +
+      '<div><div class="h3">Activity</div><ul class="log">' + log + '</ul></div>' +
+      '<label class="f">Add a note<textarea id="dNote" maxlength="800" placeholder="Troubleshooting steps, user feedback, next action"></textarea></label>' +
+      '<div class="row"><button class="btn primary small" type="button" data-act="note">Add note</button><span class="spacer"></span>' + del + '</div>'
+    );
+  }
+
+  /* ---------- events ---------- */
+  function clearFilters() {
+    state.q = ''; state.status = 'all'; state.priority = 'all'; state.category = 'all'; state.overdueOnly = false;
+    $('q').value = ''; $('fStatus').value = 'all'; $('fPriority').value = 'all'; $('fCategory').value = 'all';
+  }
+  function applyTile(key) {
+    clearFilters();
+    if (key === 'open') state.status = 'Open';
+    if (key === 'prog') state.status = 'In Progress';
+    if (key === 'done') state.status = 'Resolved';
+    if (key === 'crit') { state.priority = 'Critical'; state.status = 'active'; }
+    if (key === 'late') { state.status = 'active'; state.sort = 'oldest'; $('fSort').value = 'oldest'; }
+    $('fStatus').value = state.status; $('fPriority').value = state.priority;
+    if (key === 'late') state.overdueOnly = true;
+    renderAll();
+  }
+
+  $('tiles').addEventListener('click', function (e) {
+    var b = e.target.closest('[data-tile]'); if (b) applyTile(b.getAttribute('data-tile'));
+  });
+  $('rows').addEventListener('click', function (e) {
+    var tr = e.target.closest('tr[data-id]'); if (tr) openDetail(tr.getAttribute('data-id'));
+  });
+  $('rows').addEventListener('keydown', function (e) {
+    if (e.key === 'Enter' || e.key === ' ') {
+      var tr = e.target.closest('tr[data-id]'); if (tr) { e.preventDefault(); openDetail(tr.getAttribute('data-id')); }
+    }
+  });
+  $('q').addEventListener('input', function (e) { state.q = e.target.value; renderList(); });
+  $('fStatus').addEventListener('change', function (e) { state.status = e.target.value; renderList(); });
+  $('fPriority').addEventListener('change', function (e) { state.priority = e.target.value; renderList(); });
+  $('fCategory').addEventListener('change', function (e) { state.category = e.target.value; renderList(); });
+  $('fSort').addEventListener('change', function (e) { state.sort = e.target.value; renderList(); });
+  $('clearBtn').addEventListener('click', function () { clearFilters(); renderAll(); });
+  $('newBtn').addEventListener('click', openNew);
+
+  var resetTimer = null;
+  $('resetBtn').addEventListener('click', function () {
+    var b = $('resetBtn');
+    if (!b.getAttribute('data-armed')) {
+      b.setAttribute('data-armed', '1'); b.textContent = 'Click again to confirm'; b.classList.add('danger');
+      resetTimer = setTimeout(disarm, 4000);
+      return;
+    }
+    disarm();
+    state.tickets = seed(); save(); clearFilters(); renderAll();
+  });
+  function disarm() {
+    var b = $('resetBtn'); clearTimeout(resetTimer);
+    b.removeAttribute('data-armed'); b.textContent = 'Reset sample data'; b.classList.remove('danger');
+  }
+
+  $('overlay').addEventListener('mousedown', function (e) { if (e.target === $('overlay')) closeModal(); });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !$('overlay').hidden) closeModal(); });
+
+  $('modal').addEventListener('click', function (e) {
+    var b = e.target.closest('[data-act]'); if (!b) return;
+    var act = b.getAttribute('data-act');
+    var t = state.openId ? find(state.openId) : null;
+    if (act === 'close') { closeModal(); return; }
+    if (!t) return;
+    if (act === 'note') {
+      var ta = $('dNote'), txt = ta.value.trim();
+      if (!txt) { ta.focus(); return; }
+      addLog(t, 'note', txt); save(); renderAll(); openDetail(t.id);
+    }
+    if (act === 'delete') openDetail(t.id, true);
+    if (act === 'delete-no') openDetail(t.id, false);
+    if (act === 'delete-yes') {
+      state.tickets = state.tickets.filter(function (x) { return x.id !== t.id; });
+      save(); closeModal(); renderAll();
+    }
+  });
+
+  $('modal').addEventListener('change', function (e) {
+    var t = state.openId ? find(state.openId) : null; if (!t) return;
+    var id = e.target.id, v = e.target.value;
+    if (id === 'dStatus' && v !== t.status) { addLog(t, 'system', 'Status changed from ' + t.status + ' to ' + v); t.status = v; }
+    else if (id === 'dPri' && v !== t.priority) { addLog(t, 'system', 'Priority changed from ' + t.priority + ' to ' + v); t.priority = v; }
+    else if (id === 'dTech' && v !== t.assignee) { addLog(t, 'system', 'Assigned to ' + v); t.assignee = v; }
+    else return;
+    save(); renderAll(); openDetail(t.id);
+  });
+
+  $('modal').addEventListener('submit', function (e) {
+    if (e.target.id !== 'newForm') return;
+    e.preventDefault();
+    var title = $('nTitle').value.trim(), who = $('nWho').value.trim();
+    if (!title) { $('nErr').textContent = 'Enter a short title for the ticket.'; $('nTitle').focus(); return; }
+    if (!who) { $('nErr').textContent = 'Enter who reported the problem.'; $('nWho').focus(); return; }
+    var now = Date.now();
+    var t = { id: nextId(), title: title, category: $('nCat').value, priority: $('nPri').value, status: 'Open',
+      requester: who, assignee: $('nTech').value, created: now, updated: now, description: $('nDesc').value.trim(),
+      notes: [{ at: now, kind: 'system', text: 'Ticket created' }] };
+    state.tickets.push(t); save(); renderAll(); openDetail(t.id);
+  });
+
+  /* ---------- init ---------- */
+  $('fPriority').innerHTML = '<option value="all">All priorities</option>' + opts(PRIORITIES, '');
+  $('fCategory').innerHTML = '<option value="all">All categories</option>' + opts(CATEGORIES, '');
+  load();
+  renderAll();
+  setInterval(function () { renderAll(); }, 60000);
+})();
+</script>
+
+</body></html>
